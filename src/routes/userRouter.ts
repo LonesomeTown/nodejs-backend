@@ -1,5 +1,6 @@
 import express from 'express';
-import {prisma} from '../../prisma';
+import { prisma } from '../../prisma';
+import crypto from 'crypto';
 
 const router = express.Router();
 
@@ -13,9 +14,10 @@ router.post('/signup', async (req, res) => {
       if (existingUser) {
         return res.status(409).json({ error: 'Username already taken' });
       }
-  
+        
+      const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
       // Create a new user
-      await prisma.user.create({ data: { username, email, password } });
+      await prisma.user.create({ data: { username, email, password: hashedPassword } });
   
       return res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
@@ -33,9 +35,9 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
-
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
     // Compare the provided password with the stored password
-    if (user.password !== password) {
+    if (user.password !== hashedPassword) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
     // Exclude password and other sensitive fields before sending

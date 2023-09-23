@@ -9,7 +9,17 @@ const router = express.Router();
 router.post('/password-reset-link', async (req, res) => {
   const { email } = req.body;
   // todo: write your code here
-  // 1. verify if email is in database
+  // 1. verify if email is in database, if not return error
+  const user = await prisma.user.findUnique({
+    where: {
+      email: email
+    }
+  });
+  if (!user) {
+    return res.status(400).json({
+      message: 'Email not found'
+    });
+  }
 
   const timestamp = Date.now();
   const currentDate = new Date(timestamp);
@@ -65,22 +75,33 @@ router.post('/password-reset/confirm', async (req, res) => {
   // 4. Update the user's password in the database
   // 5. Invalidate the token so it can't be used again
   // 6. Send a response to the frontend
-  const { token, password } = req.body;
-  // console.log(token, password);
-  
-  // 1. Find the user by the token
-
-  // 2. Verify that the token hasn't expired (assuming you have an expiry date in your DB)
-  // If you have a resetTokenExpiry field in your User model:
-
-
-  // 3. Hash the new password
-  // const hashedPassword = await bcrypt.hash(password, 10);
-
-  // 4. Update the user's password in the database
-
-
-  // 6. Send a response to the frontend
+    const { token, password } = req.body;
+    const user = await prisma.user.findUnique({
+        where: {
+            resetToken: token,
+            resetTokenExpiry: {
+                gte: Date.now()
+            }
+        }
+    });
+    if (!user) {
+        return res.status(400).json({
+            message: 'Invalid token'
+        });
+    }
+    //Use crypto to hash the password
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+    await prisma.user.update({
+        where: {
+            email: user.email
+        },
+        data: {
+            password: hashedPassword,
+            resetToken: null,
+            resetTokenExpiry: null
+        }
+    });
+    res.status(200).send({ message: 'Password reset successfully.' });
 
 });
 
